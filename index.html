@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith LiveEdu - Nền Tảng Livestream & Học Tập Trực Tuyến</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        brand: { 50: '#eef2ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes floatUp {
+            0% { transform: translateY(0px) scale(0.8); opacity: 1; }
+            100% { transform: translateY(-350px) scale(1.3); opacity: 0; }
+        }
+        .floating-reaction {
+            position: absolute;
+            bottom: 20px;
+            animation: floatUp 3s ease-out forwards;
+            pointer-events: none;
+            font-size: 28px;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .dark .glass-panel {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(51, 65, 85, 0.8);
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
+
+    <!-- App Root Container -->
+    <div id="app" class="min-h-full flex flex-col">
+        <!-- Header -->
+        <header class="glass-panel sticky top-0 z-50 px-6 py-4 flex items-center justify-between shadow-sm">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="router.navigate('home')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-video text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Zenith LiveEdu</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Nền tảng Livestream & Học trực tuyến</p>
+                </div>
+            </div>
+            <div id="nav-actions" class="flex items-center space-x-4">
+                <button onclick="toggleDarkMode()" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                    <i id="theme-icon" class="fa-solid fa-moon"></i>
+                </button>
+                <div id="user-profile-badge" class="hidden items-center space-x-3 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-xl">
+                    <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm" id="user-avatar-text">U</div>
+                    <div>
+                        <div class="font-semibold text-xs" id="nav-username">Tên người dùng</div>
+                        <div class="text-[10px] text-indigo-500 uppercase font-bold" id="nav-role">Role</div>
+                    </div>
+                    <button onclick="authManager.logout()" class="ml-2 text-rose-500 hover:text-rose-600 p-1" title="Đăng xuất">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col" id="main-view">
+            <!-- Dynamic Views injected here -->
+        </main>
+    </div>
+
+    <!-- Firebase SDKs (Modular v10) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+        import { getFirestore, collection, addDoc, setDoc, doc, getDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4b5J69yCLrsQILyZHLC6PNa5RlYBhCxQ",
+            authDomain: "live-dd8f9.firebaseapp.com",
+            projectId: "live-dd8f9",
+            storageBucket: "live-dd8f9.firebasestorage.app",
+            messagingSenderId: "751001710449",
+            appId: "1:751001710449:web:d75c335918d17fe3d490d0",
+            measurementId: "G-B0LJVZS6CJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Expose Firebase tools globally for the app
+        window.db = db;
+        window.FBModules = { collection, addDoc, setDoc, doc, getDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, serverTimestamp, arrayUnion };
+        
+        // Trigger app init once Firebase is ready
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
+
+    <!-- Application Script -->
+    <script>
+        // --- State Management & Router ---
+        const State = {
+            currentUser: JSON.parse(localStorage.getItem('zenith_user')) || null,
+            currentSessionId: localStorage.getItem('zenith_session_id') || null,
+            currentRoomId: null,
+            activeUnsubscribers: []
+        };
+
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        }
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+
+        // Router
+        const router = {
+            navigate: (viewName, params = {}) => {
+                // Clear previous listeners
+                State.activeUnsubscribers.forEach(unsub => unsub());
+                State.activeUnsubscribers = [];
+
+                const main = document.getElementById('main-view');
+                updateNavbarProfile();
+
+                // Check URL query parameters for room link
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomIdParam = urlParams.get('room') || params.roomId;
+
+                if (roomIdParam) {
+                    renderLiveRoom(roomIdParam);
+                    return;
+                }
+
+                if (!State.currentUser) {
+                    renderAuthView();
+                    return;
+                }
+
+                if (State.currentUser.role === 'admin') {
+                    renderAdminDashboard();
+                } else {
+                    renderStudentDashboard();
+                }
+            }
+        };
+
+        function updateNavbarProfile() {
+            const badge = document.getElementById('user-profile-badge');
+            if (State.currentUser) {
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+                document.getElementById('nav-username').innerText = State.currentUser.name || State.currentUser.username;
+                document.getElementById('nav-role').innerText = State.currentUser.role === 'admin' ? 'Quản trị viên' : `Học sinh (${State.currentUser.className || ''})`;
+                document.getElementById('user-avatar-text').innerText = (State.currentUser.name || State.currentUser.username).charAt(0).toUpperCase();
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
+            }
+        }
+
+        // --- Auth & Single Device Enforcement ---
+        const authManager = {
+            login: async (username, password, selectedClass = '') => {
+                const db = window.db;
+                const { collection, query, where, getDocs, setDoc, doc, serverTimestamp } = window.FBModules;
+
+                try {
+                    // Check Admin default or Firestore
+                    if (username === 'admin' && password === 'admin123') {
+                        const adminUser = { username: 'admin', name: 'Quản Trị Viên', role: 'admin' };
+                        authManager.setSession(adminUser);
+                        return { success: true };
+                    }
+
+                    // Query students in Firestore
+                    const q = query(collection(db, 'users'), where('username', '==', username), where('password', '==', password));
+                    const snapshot = await getDocs(q);
+
+                    if (snapshot.empty) {
+                        return { success: false, message: 'Sai tên đăng nhập hoặc mật khẩu!' };
+                    }
+
+                    const userDoc = snapshot.docs[0];
+                    const userData = userDoc.id;
+                    const user = { id: userDoc.id, ...userDoc.data() };
+
+                    if (user.role === 'student' && user.className !== selectedClass) {
+                        return { success: false, message: 'Lớp học không khớp với tài khoản!' };
+                    }
+
+                    // Single device enforcement token
+                    const sessionId = 'sess_' + Math.random().toString(36).substring(2, 15) + Date.now();
+                    await setDoc(doc(db, 'users', user.id), { 
+                        activeSessionId: sessionId,
+                        lastLogin: serverTimestamp(),
+                        deviceInfo: navigator.userAgent
+                    }, { merge: true });
+
+                    authManager.setSession(user, sessionId);
+
+                    // Log activity
+                    await addDoc(collection(db, 'activities'), {
+                        userId: user.id,
+                        username: user.username,
+                        name: user.name,
+                        className: user.className || 'Admin',
+                        device: navigator.userAgent,
+                        loginAt: new Date().toISOString(),
+                        logoutAt: null
+                    });
+
+                    return { success: true };
+                } catch (err) {
+                    console.error(err);
+                    return { success: false, message: 'Lỗi kết nối Firebase: ' + err.message };
+                }
+            },
+
+            setSession: (user, sessionId = null) => {
+                State.currentUser = user;
+                localStorage.setItem('zenith_user', JSON.stringify(user));
+                if (sessionId) {
+                    State.currentSessionId = sessionId;
+                    localStorage.setItem('zenith_session_id', sessionId);
+                }
+                
+                // Monitor active session for single-device kickout
+                if (user.role === 'student') {
+                    const { doc, onSnapshot } = window.FBModules;
+                    const unsub = onSnapshot(doc(window.db, 'users', user.id), (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            if (data.activeSessionId && data.activeSessionId !== State.currentSessionId) {
+                                alert('Tài khoản của bạn đã được đăng nhập ở một thiết bị khác!');
+                                authManager.logout(false);
+                            }
+                        }
+                    });
+                    State.activeUnsubscribers.push(unsub);
+                }
+
+                router.navigate('home');
+            },
+
+            logout: async (callServer = true) => {
+                if (State.currentUser && State.currentUser.id && callServer) {
+                    try {
+                        const { collection, addDoc } = window.FBModules;
+                        await addDoc(collection(window.db, 'activities'), {
+                            userId: State.currentUser.id,
+                            username: State.currentUser.username,
+                            name: State.currentUser.name,
+                            logoutAt: new Date().toISOString()
+                        });
+                    } catch(e) { console.error(e); }
+                }
+                State.currentUser = null;
+                State.currentSessionId = null;
+                localStorage.removeItem('zenith_user');
+                localStorage.removeItem('zenith_session_id');
+                window.history.pushState({}, '', window.location.pathname);
+                router.navigate('home');
+            }
+        };
+
+        // --- Views Rendering ---
+
+        function renderAuthView() {
+            const main = document.getElementById('main-view');
+            main.innerHTML = `
+                <div class="flex-1 flex items-center justify-center px-4 py-12">
+                    <div class="glass-panel max-w-md w-full p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+                        <div class="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                        <div class="text-center mb-8">
+                            <h2 class="text-2xl font-extrabold tracking-tight mb-2">Đăng Nhập Hệ Thống</h2>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Nhập thông tin tài khoản Admin hoặc Học sinh</p>
+                        </div>
+                        <form id="login-form" class="space-y-5">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Chọn Vai Trò</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button type="button" onclick="setRoleTab('student')" id="role-student-btn" class="py-2.5 px-4 rounded-xl font-semibold text-sm border-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 transition">Học Sinh</button>
+                                    <button type="button" onclick="setRoleTab('admin')" id="role-admin-btn" class="py-2.5 px-4 rounded-xl font-semibold text-sm border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 transition">Quản Trị Viên</button>
+                                </div>
+                            </div>
+                            <div id="student-class-group">
+                                <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Chọn Lớp Học</label>
+                                <select id="login-class" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                                    <option value="">-- Đang tải danh sách lớp --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Tên Đăng Nhập</label>
+                                <input type="text" id="login-username" required placeholder="Nhập tên đăng nhập..." class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Mật Khẩu</label>
+                                <input type="password" id="login-password" required placeholder="••••••••" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                            </div>
+                            <button type="submit" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold shadow-lg shadow-indigo-600/30 transition transform active:scale-[0.98]">
+                                Đăng Nhập Ngay
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            window.currentLoginRole = 'student';
+            loadClassesForLoginDropdown();
+
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value.trim();
+                const password = document.getElementById('login-password').value.trim();
+                const selectedClass = document.getElementById('login-class').value;
+
+                if (window.currentLoginRole === 'student' && !selectedClass) {
+                    alert('Vui lòng chọn lớp học!');
+                    return;
+                }
+
+                const res = await authManager.login(window.currentLoginRole === 'admin' ? 'admin' : username, password, selectedClass);
+                if (!res.success) {
+                    alert(res.message);
+                }
+            });
+        }
+
+        window.setRoleTab = (role) => {
+            window.currentLoginRole = role;
+            const studentBtn = document.getElementById('role-student-btn');
+            const adminBtn = document.getElementById('role-admin-btn');
+            const classGroup = document.getElementById('student-class-group');
+            const usernameInput = document.getElementById('login-username');
+
+            if (role === 'student') {
+                studentBtn.className = "py-2.5 px-4 rounded-xl font-semibold text-sm border-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 transition";
+                adminBtn.className = "py-2.5 px-4 rounded-xl font-semibold text-sm border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 transition";
+                classGroup.style.display = 'block';
+                usernameInput.value = '';
+                usernameInput.placeholder = 'Nhập tên đăng nhập học sinh...';
+            } else {
+                adminBtn.className = "py-2.5 px-4 rounded-xl font-semibold text-sm border-2 border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 transition";
+                studentBtn.className = "py-2.5 px-4 rounded-xl font-semibold text-sm border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 transition";
+                classGroup.style.display = 'none';
+                usernameInput.value = 'admin';
+                usernameInput.placeholder = 'admin';
+            }
+        }
+
+        async function loadClassesForLoginDropdown() {
+            try {
+                const { collection, getDocs } = window.FBModules;
+                const snap = await getDocs(collection(window.db, 'classes'));
+                const select = document.getElementById('login-class');
+                if (!select) return;
+                select.innerHTML = '<option value="">-- Chọn lớp học --</option>';
+                snap.forEach(docSnap => {
+                    const c = docSnap.data();
+                    select.innerHTML += `<option value="${c.name}">${c.name} - ${c.description || ''}</option>`;
+                });
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        // --- Admin Dashboard ---
+        async function renderAdminDashboard() {
+            const main = document.getElementById('main-view');
+            main.innerHTML = `
+                <div class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-8">
+                    <!-- Top stats / Welcome -->
+                    <div class="glass-panel p-6 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+                        <div>
+                            <h2 class="text-2xl font-extrabold tracking-tight">Xin chào, Quản Trị Viên 👋</h2>
+                            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Quản lý lớp học, tài khoản học sinh, phòng livestream và theo dõi hoạt động.</p>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button onclick="openCreateLiveModal()" class="px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-bold shadow-lg shadow-rose-600/30 transition flex items-center space-x-2">
+                                <i class="fa-solid fa-tower-broadcast"></i>
+                                <span>Tạo Phòng Live Mới</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabs Management -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- Left 1 Col: Create Classes & Students -->
+                        <div class="space-y-8">
+                            <!-- Create Class -->
+                            <div class="glass-panel p-6 rounded-3xl shadow-lg">
+                                <h3 class="text-lg font-bold mb-4 flex items-center space-x-2">
+                                    <i class="fa-solid fa-school text-indigo-500"></i>
+                                    <span>Tạo Lớp Học Mới</span>
+                                </h3>
+                                <form id="create-class-form" class="space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Tên Lớp</label>
+                                        <input type="text" id="class-name" required placeholder="VD: 12A1 - Toán Cao Cấp" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Mô Tả</label>
+                                        <input type="text" id="class-desc" placeholder="VD: Ôn thi Đại học Bách Khoa" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-md shadow-indigo-600/20">Tạo Lớp</button>
+                                </form>
+                            </div>
+
+                            <!-- Create Student Account -->
+                            <div class="glass-panel p-6 rounded-3xl shadow-lg">
+                                <h3 class="text-lg font-bold mb-4 flex items-center space-x-2">
+                                    <i class="fa-solid fa-user-plus text-violet-500"></i>
+                                    <span>Tạo Tài Khoản Học Sinh</span>
+                                </h3>
+                                <form id="create-student-form" class="space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Chọn Lớp</label>
+                                        <select id="student-class-select" required class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                            <option value="">-- Chọn lớp --</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Họ và Tên</label>
+                                        <input type="text" id="student-fullname" required placeholder="Nguyễn Văn A" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Tên Đăng Nhập</label>
+                                        <input type="text" id="student-username" required placeholder="hs_vana" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-600 dark:text-slate-300">Mật Khẩu</label>
+                                        <input type="text" id="student-pass" required placeholder="matkhau123" class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <button type="submit" class="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold transition shadow-md shadow-violet-600/20">Tạo Học Sinh</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Right 2 Cols: Rooms, Students List & Activity Logs -->
+                        <div class="lg:col-span-2 space-y-8">
+                            <!-- Active Live Rooms -->
+                            <div class="glass-panel p-6 rounded-3xl shadow-lg">
+                                <h3 class="text-lg font-bold mb-4 flex items-center space-x-2">
+                                    <i class="fa-solid fa-video text-rose-500"></i>
+                                    <span>Danh Sách Phòng Livestream</span>
+                                </h3>
+                                <div id="admin-rooms-list" class="space-y-4">
+                                    <p class="text-sm text-slate-500">Đang tải phòng live...</p>
+                                </div>
+                            </div>
+
+                            <!-- Student Activity Logs -->
+                            <div class="glass-panel p-6 rounded-3xl shadow-lg">
+                                <h3 class="text-lg font-bold mb-4 flex items-center space-x-2">
+                                    <i class="fa-solid fa-clock-rotate-left text-amber-500"></i>
+                                    <span>Nhật Ký Hoạt Động Học Sinh</span>
+                                </h3>
+                                <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500">
+                                                <th class="py-3 px-4">Học Sinh</th>
+                                                <th class="py-3 px-4">Lớp</th>
+                                                <th class="py-3 px-4">Thiết Bị</th>
+                                                <th class="py-3 px-4">Đăng Nhập</th>
+                                                <th class="py-3 px-4">Đăng Xuất</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="activity-logs-tbody" class="text-sm divide-y divide-slate-100 dark:divide-slate-800">
+                                            <tr><td colspan="5" class="py-4 text-center text-slate-500">Đang tải nhật ký...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Setup Admin handlers
+            loadAdminData();
+
+            document.getElementById('create-class-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('class-name').value.trim();
+                const description = document.getElementById('class-desc').value.trim();
+                try {
+                    const { collection, addDoc } = window.FBModules;
+                    await addDoc(collection(window.db, 'classes'), { name, description, createdAt: new Date().toISOString() });
+                    alert('Tạo lớp học thành công!');
+                    document.getElementById('create-class-form').reset();
+                    loadAdminData();
+                } catch(err) { alert('Lỗi: ' + err.message); }
+            });
+
+            document.getElementById('create-student-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const className = document.getElementById('student-class-select').value;
+                const name = document.getElementById('student-fullname').value.trim();
+                const username = document.getElementById('student-username').value.trim();
+                const password = document.getElementById('student-pass').value.trim();
+
+                try {
+                    const { collection, addDoc } = window.FBModules;
+                    await addDoc(collection(window.db, 'users'), {
+                        role: 'student',
+                        className,
+                        name,
+                        username,
+                        password,
+                        createdAt: new Date().toISOString()
+                    });
+                    alert('Tạo tài khoản học sinh thành công!');
+                    document.getElementById('create-student-form').reset();
+                    loadAdminData();
+                } catch(err) { alert('Lỗi: ' + err.message); }
+            });
+        }
+
+        async function loadAdminData() {
+            const { collection, getDocs, onSnapshot } = window.FBModules;
+            
+            // Load Classes for dropdowns
+            const classSnap = await getDocs(collection(window.db, 'classes'));
+            const select = document.getElementById('student-class-select');
+            if (select) {
+                select.innerHTML = '<option value="">-- Chọn lớp --</option>';
+                classSnap.forEach(d => {
+                    const c = d.data();
+                    select.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+                });
+            }
+
+            // Real-time Rooms
+            const unsubRooms = onSnapshot(collection(window.db, 'rooms'), (snapshot) => {
+                const listEl = document.getElementById('admin-rooms-list');
+                if (!listEl) return;
+                if (snapshot.empty) {
+                    listEl.innerHTML = `<p class="text-sm text-slate-500">Chưa có phòng livestream nào được tạo.</p>`;
+                    return;
+                }
+                listEl.innerHTML = '';
+                snapshot.forEach(docSnap => {
+                    const room = docSnap.data();
+                    const roomId = docSnap.id;
+                    const roomUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+                    listEl.innerHTML += `
+                        <div class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div>
+                                <h4 class="font-bold text-base text-indigo-600 dark:text-indigo-400">${room.title}</h4>
+                                <p class="text-xs text-slate-500 mt-0.5">Lớp: <span class="font-semibold">${room.className}</span> | Mật khẩu: <span class="font-mono bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">${room.password}</span></p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="navigator.clipboard.writeText('${roomUrl}'); alert('Đã copy link phòng live!');" class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-xs font-bold transition">
+                                    <i class="fa-solid fa-link mr-1"></i> Copy Link
+                                </button>
+                                <button onclick="router.navigate(null, {roomId: '${roomId}'})" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition">
+                                    Vào Phòng Live
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+            State.activeUnsubscribers.push(unsubRooms);
+
+            // Real-time Activity Logs
+            const unsubLogs = onSnapshot(collection(window.db, 'activities'), (snapshot) => {
+                const tbody = document.getElementById('activity-logs-tbody');
+                if (!tbody) return;
+                if (snapshot.empty) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-500">Chưa có hoạt động nào.</td></tr>`;
+                    return;
+                }
+                tbody.innerHTML = '';
+                const logs = [];
+                snapshot.forEach(d => logs.push(d.data()));
+                logs.sort((a, b) => new Date(b.loginAt || 0) - new Date(a.loginAt || 0));
+
+                logs.slice(0, 15).forEach(log => {
+                    const loginTime = log.loginAt ? new Date(log.loginAt).toLocaleString('vi-VN') : '-';
+                    const logoutTime = log.logoutAt ? new Date(log.logoutAt).toLocaleString('vi-VN') : '<span class="text-emerald-500 font-semibold animate-pulse">Đang online</span>';
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50">
+                            <td class="py-3 px-4 font-semibold">${log.name || log.username}</td>
+                            <td class="py-3 px-4 text-slate-500">${log.className || '-'}</td>
+                            <td class="py-3 px-4 text-xs truncate max-w-xs" title="${log.device || ''}">${log.device ? log.device.substring(0, 30) + '...' : '-'}</td>
+                            <td class="py-3 px-4 text-xs text-slate-500">${loginTime}</td>
+                            <td class="py-3 px-4 text-xs">${logoutTime}</td>
+                        </tr>
+                    `;
+                });
+            });
+            State.activeUnsubscribers.push(unsubLogs);
+        }
+
+        function openCreateLiveModal() {
+            const title = prompt('Nhập tiêu đề phòng Livestream:');
+            if (!title) return;
+            const className = prompt('Nhập tên lớp học áp dụng:');
+            if (!className) return;
+            const password = prompt('Nhập mật khẩu vào phòng live:');
+            if (!password) return;
+
+            createRoomInFirestore(title, className, password);
+        }
+
+        async function createRoomInFirestore(title, className, password) {
+            try {
+                const { collection, addDoc } = window.FBModules;
+                const docRef = await addDoc(collection(window.db, 'rooms'), {
+                    title,
+                    className,
+                    password,
+                    hostId: State.currentUser.id || 'admin',
+                    status: 'live',
+                    createdAt: new Date().toISOString()
+                });
+                alert('Tạo phòng livestream thành công!');
+                router.navigate(null, { roomId: docRef.id });
+            } catch(e) {
+                alert('Lỗi tạo phòng: ' + e.message);
+            }
+        }
+
+        // --- Student Dashboard ---
+        async function renderStudentDashboard() {
+            const main = document.getElementById('main-view');
+            main.innerHTML = `
+                <div class="flex-1 max-w-5xl w-full mx-auto p-6 space-y-8">
+                    <div class="glass-panel p-8 rounded-3xl shadow-xl bg-gradient-to-r from-indigo-600/10 via-violet-600/15 to-rose-600/10">
+                        <h2 class="text-2xl font-extrabold">Chào mừng, ${State.currentUser.name}! 👋</h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Lớp học của bạn: <span class="font-bold text-indigo-600">${State.currentUser.className}</span>. Chọn phòng livestream bên dưới để tham gia bài giảng.</p>
+                    </div>
+                    <div class="glass-panel p-6 rounded-3xl shadow-lg">
+                        <h3 class="text-lg font-bold mb-4 flex items-center space-x-2">
+                            <i class="fa-solid fa-tower-broadcast text-rose-500"></i>
+                            <span>Phòng Livestream Đang Mở Cho Lớp ${State.currentUser.className}</span>
+                        </h3>
+                        <div id="student-rooms-list" class="space-y-4">
+                            <p class="text-sm text-slate-500">Đang tìm phòng live...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const { collection, query, where, onSnapshot } = window.FBModules;
+            const q = query(collection(window.db, 'rooms'), where('className', '==', State.currentUser.className));
+            const unsub = onSnapshot(q, (snapshot) => {
+                const listEl = document.getElementById('student-rooms-list');
+                if (!listEl) return;
+                if (snapshot.empty) {
+                    listEl.innerHTML = `<p class="text-sm text-slate-500">Hiện chưa có buổi livestream nào cho lớp của bạn.</p>`;
+                    return;
+                }
+                listEl.innerHTML = '';
+                snapshot.forEach(docSnap => {
+                    const room = docSnap.data();
+                    const roomId = docSnap.id;
+                    listEl.innerHTML += `
+                        <div class="p-5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                            <div>
+                                <h4 class="font-bold text-lg text-indigo-600 dark:text-indigo-400">${room.title}</h4>
+                                <p class="text-xs text-slate-500 mt-1">Giảng viên: <span class="font-semibold">Quản Trị Viên</span></p>
+                            </div>
+                            <button onclick="promptJoinRoom('${roomId}', '${room.password}')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-600/30 transition">
+                                Tham Gia Live
+                            </button>
+                        </div>
+                    `;
+                });
+            });
+            State.activeUnsubscribers.push(unsub);
+        }
+
+        window.promptJoinRoom = (roomId, correctPassword) => {
+            const pass = prompt('Nhập mật khẩu phòng livestream để vào xem:');
+            if (pass === null) return;
+            if (pass !== correctPassword) {
+                alert('Mật khẩu phòng live không chính xác!');
+                return;
+            }
+            router.navigate(null, { roomId });
+        }
+
+        // --- Live Room View (Screen Share + WebRTC + Chat + Reactions + Recording) ---
+        async function renderLiveRoom(roomId) {
+            const main = document.getElementById('main-view');
+            const isAdmin = State.currentUser && State.currentUser.role === 'admin';
+
+            main.innerHTML = `
+                <div class="flex-1 flex flex-col lg:flex-row h-[calc(100vh-73px)] overflow-hidden">
+                    <!-- Left: Video Stream & Controls -->
+                    <div class="flex-1 flex flex-col bg-slate-950 relative overflow-hidden">
+                        <div class="absolute top-4 left-4 z-20 flex items-center space-x-3 bg-black/60 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
+                            <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
+                            <span class="text-white font-bold text-xs uppercase tracking-wider" id="room-title-badge">Phòng Live Trực Tiếp</span>
+                        </div>
+
+                        <!-- Video Player Area -->
+                        <div class="flex-1 flex items-center justify-center relative">
+                            <video id="live-video-player" autoplay playsinline class="w-full h-full object-contain bg-black"></video>
+                            <div id="video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 space-y-3">
+                                <i class="fa-solid fa-satellite-dish text-5xl text-indigo-500 animate-bounce"></i>
+                                <p class="text-sm font-medium">Đang kết nối tín hiệu phòng live...</p>
+                            </div>
+                        </div>
+
+                        <!-- Admin Stream Controls -->
+                        ${isAdmin ? `
+                        <div class="p-4 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 flex items-center justify-center space-x-4">
+                            <button id="btn-start-share" onclick="startScreenShare()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition flex items-center space-x-2">
+                                <i class="fa-solid fa-desktop"></i>
+                                <span>Chia Sẻ Màn Hình (Bắt Đầu Live)</span>
+                            </button>
+                            <button id="btn-stop-share" onclick="stopScreenShare()" disabled class="px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition flex items-center space-x-2">
+                                <i class="fa-solid fa-stop"></i>
+                                <span>Kết Thúc & Tải MP4</span>
+                            </button>
+                        </div>
+                        ` : ''}
+
+                        <!-- Embed Code Modal Trigger for Admin -->
+                        ${isAdmin ? `
+                        <div class="absolute top-4 right-4 z-20">
+                            <button onclick="showEmbedModal('${roomId}')" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs backdrop-blur-md border border-white/20 transition flex items-center space-x-2">
+                                <i class="fa-solid fa-code"></i>
+                                <span>Mã Nhúng (Embed)</span>
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Right: Facebook-like Chat & Reactions Sidebar -->
+                    <div class="w-full lg:w-96 glass-panel border-l border-slate-200 dark:border-slate-800 flex flex-col h-full relative overflow-hidden">
+                        <div class="p-4 border-b border-slate-200 dark:border-slate-800 font-bold flex items-center justify-between">
+                            <span class="flex items-center space-x-2">
+                                <i class="fa-solid fa-comments text-indigo-500"></i>
+                                <span>Tương Tác Trực Tiếp</span>
+                            </span>
+                            <button onclick="router.navigate('home')" class="text-xs text-rose-500 hover:underline">Rời phòng</button>
+                        </div>
+
+                        <!-- Chat Messages Container -->
+                        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3">
+                            <!-- Messages injected here -->
+                        </div>
+
+                        <!-- Floating Reactions Bar -->
+                        <div class="p-3 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-around">
+                            <button onclick="sendReaction('❤️')" class="text-2xl hover:scale-125 transition">❤️</button>
+                            <button onclick="sendReaction('👍')" class="text-2xl hover:scale-125 transition">👍</button>
+                            <button onclick="sendReaction('😆')" class="text-2xl hover:scale-125 transition">😆</button>
+                            <button onclick="sendReaction('😮')" class="text-2xl hover:scale-125 transition">😮</button>
+                            <button onclick="sendReaction('😢')" class="text-2xl hover:scale-125 transition">😢</button>
+                            <button onclick="sendReaction('🔥')" class="text-2xl hover:scale-125 transition">🔥</button>
+                        </div>
+
+                        <!-- Chat Input Form -->
+                        <form id="chat-form" class="p-3 bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center space-x-2">
+                            <input type="text" id="chat-input" required placeholder="Nhập bình luận..." class="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 outline-none text-sm focus:ring-2 focus:ring-indigo-500">
+                            <button type="submit" class="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-md shadow-indigo-600/30">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </form>
+
+                        <!-- Reactions Overlay Container -->
+                        <div id="reactions-overlay" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+                    </div>
+                </div>
+            `;
+
+            // Initialize room data & WebRTC signaling / Firestore stream sync
+            initLiveRoomLogic(roomId, isAdmin);
+        }
+
+        // --- WebRTC & MediaStream Recording Logic ---
+        let localStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let peerConnection = null;
+
+        const servers = {
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        };
+
+        async function initLiveRoomLogic(roomId, isAdmin) {
+            const { doc, getDoc, collection, addDoc, onSnapshot, serverTimestamp, setDoc, deleteDoc } = window.FBModules;
+
+            // Load Room details
+            const roomSnap = await getDoc(doc(window.db, 'rooms', roomId));
+            if (roomSnap.exists()) {
+                const roomData = roomSnap.data();
+                const badge = document.getElementById('room-title-badge');
+                if (badge) badge.innerText = roomData.title;
+            }
+
+            // Realtime Chat listener
+            const chatCol = collection(window.db, 'rooms', roomId, 'chats');
+            const unsubChat = onSnapshot(chatCol, (snapshot) => {
+                const chatBox = document.getElementById('chat-messages');
+                if (!chatBox) return;
+                chatBox.innerHTML = '';
+                const messages = [];
+                snapshot.forEach(d => messages.push(d.data()));
+                messages.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+                messages.forEach(msg => {
+                    chatBox.innerHTML += `
+                        <div class="flex flex-col">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-xs text-indigo-600 dark:text-indigo-400">${msg.name}</span>
+                                <span class="text-[10px] text-slate-400">${new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                            <p class="text-sm bg-slate-100 dark:bg-slate-900 p-2.5 rounded-xl mt-1 border border-slate-200 dark:border-slate-800">${msg.text}</p>
+                        </div>
+                    `;
+                });
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+            State.activeUnsubscribers.push(unsubChat);
+
+            // Realtime Reactions listener
+            const reactCol = collection(window.db, 'rooms', roomId, 'reactions');
+            const unsubReact = onSnapshot(reactCol, (snapshot) => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === 'added') {
+                        const data = change.doc.data();
+                        showFloatingReaction(data.emoji);
+                    }
+                });
+            });
+            State.activeUnsubscribers.push(unsubReact);
+
+            // Chat Form submit
+            document.getElementById('chat-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = document.getElementById('chat-input');
+                const text = input.value.trim();
+                if (!text) return;
+
+                await addDoc(collection(window.db, 'rooms', roomId, 'chats'), {
+                    name: State.currentUser.name || State.currentUser.username,
+                    text,
+                    createdAt: new Date().toISOString()
+                });
+                input.value = '';
+            });
+
+            // WebRTC Signaling via Firestore
+            const roomDocRef = doc(window.db, 'rooms', roomId);
+            
+            if (isAdmin) {
+                // Admin creates WebRTC offer when screen sharing starts
+                window.startScreenShare = async () => {
+                    try {
+                        localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                        const videoPlayer = document.getElementById('live-video-player');
+                        videoPlayer.srcObject = localStream;
+                        document.getElementById('video-placeholder').classList.add('hidden');
+
+                        document.getElementById('btn-start-share').disabled = true;
+                        document.getElementById('btn-stop-share').disabled = false;
+
+                        // Start Recording for MP4 download
+                        recordedChunks = [];
+                        mediaRecorder = new MediaRecorder(localStream, { mimeType: 'video/webm;codecs=vp9' });
+                        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                        mediaRecorder.start();
+
+                        // Setup WebRTC PeerConnection
+                        peerConnection = new RTCPeerConnection(servers);
+                        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                        peerConnection.onicecandidate = async (event) => {
+                            if (event.candidate) {
+                                await setDoc(roomDocRef, { adminIce: arrayUnion(event.candidate) }, { merge: true });
+                            }
+                        };
+
+                        const offer = await peerConnection.createOffer();
+                        await peerConnection.setLocalDescription(offer);
+
+                        await setDoc(roomDocRef, {
+                            offer: { type: offer.type, sdp: offer.sdp },
+                            isLive: true
+                        }, { merge: true });
+
+                        // Listen for student answer
+                        const unsubRoom = onSnapshot(roomDocRef, async (docSnap) => {
+                            const data = docSnap.data();
+                            if (data && data.answer && !peerConnection.currentRemoteDescription) {
+                                const remoteDesc = new RTCSessionDescription(data.answer);
+                                await peerConnection.setRemoteDescription(remoteDesc);
+                            }
+                            if (data && data.studentIce && Array.isArray(data.studentIce)) {
+                                data.studentIce.forEach(async (candidate) => {
+                                    try {
+                                        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                                    } catch(e) {}
+                                });
+                            }
+                        });
+                        State.activeUnsubscribers.push(unsubRoom);
+
+                        // Stop sharing handler from browser UI
+                        localStream.getVideoTracks()[0].onended = () => {
+                            stopScreenShare();
+                        };
+
+                    } catch (err) {
+                        alert('Không thể chia sẻ màn hình: ' + err.message);
+                    }
+                };
+
+                window.stopScreenShare = async () => {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                        mediaRecorder.onstop = () => {
+                            const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = `livestream-${roomId}-${Date.now()}.mp4`;
+                            document.body.appendChild(a);
+                            a.click();
+                            setTimeout(() => {
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(url);
+                            }, 100);
+                        };
+                    }
+
+                    if (localStream) {
+                        localStream.getTracks().forEach(track => track.stop());
+                    }
+                    if (peerConnection) {
+                        peerConnection.close();
+                    }
+
+                    // Clean up room data from Firebase to save space as requested
+                    try {
+                        await deleteDoc(roomDocRef);
+                        alert('Đã kết thúc buổi live, tải xuống video MP4 và xóa dữ liệu phòng thành công!');
+                        router.navigate('home');
+                    } catch(e) {
+                        console.error(e);
+                    }
+                };
+
+            } else {
+                // Student joins and listens for WebRTC offer
+                const unsubRoom = onSnapshot(roomDocRef, async (docSnap) => {
+                    if (!docSnap.exists()) {
+                        alert('Buổi livestream đã kết thúc.');
+                        router.navigate('home');
+                        return;
+                    }
+                    const data = docSnap.data();
+                    if (data && data.offer && !peerConnection) {
+                        peerConnection = new RTCPeerConnection(servers);
+
+                        peerConnection.ontrack = (event) => {
+                            const videoPlayer = document.getElementById('live-video-player');
+                            videoPlayer.srcObject = event.streams[0];
+                            document.getElementById('video-placeholder').classList.add('hidden');
+                        };
+
+                        peerConnection.onicecandidate = async (event) => {
+                            if (event.candidate) {
+                                await setDoc(roomDocRef, { studentIce: arrayUnion(event.candidate) }, { merge: true });
+                            }
+                        };
+
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+
+                        await setDoc(roomDocRef, { answer: { type: answer.type, sdp: answer.sdp } }, { merge: true });
+
+                        if (data.adminIce && Array.isArray(data.adminIce)) {
+                            data.adminIce.forEach(async (candidate) => {
+                                try {
+                                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                                } catch(e){}
+                            });
+                        }
+                    }
+                });
+                State.activeUnsubscribers.push(unsubRoom);
+            }
+        }
+
+        window.sendReaction = async (emoji) => {
+            const { collection, addDoc } = window.FBModules;
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room');
+            if (!roomId) return;
+
+            await addDoc(collection(window.db, 'rooms', roomId, 'reactions'), {
+                emoji,
+                createdAt: new Date().toISOString()
+            });
+        };
+
+        function showFloatingReaction(emoji) {
+            const container = document.getElementById('reactions-overlay');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.className = 'floating-reaction';
+            el.innerText = emoji;
+            el.style.left = Math.random() * 80 + 10 + '%';
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        window.showEmbedModal = (roomId) => {
+            const embedCode = `<iframe src="${window.location.origin}${window.location.pathname}?room=${roomId}" width="100%" height="600px" frameborder="0" allow="camera; microphone; fullscreen; display-capture"></iframe>`;
+            prompt("Sao chép mã nhúng (Embed) dưới đây để đưa vào website khác:", embedCode);
+        };
+
+        // --- App Boot ---
+        window.addEventListener('firebase-ready', () => {
+            router.navigate('home');
+        });
+
+        // Fallback if event fired before load
+        if (window.db) {
+            router.navigate('home');
+        }
+    </script>
+</body>
+</html>
